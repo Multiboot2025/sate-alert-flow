@@ -113,16 +113,9 @@ export async function processAdmission(payload: AdmissionPayload): Promise<Proce
     assignedManagerId = onCall[idx % onCall.length].id;
   }
 
-  // 6. Generate case code
-  const { data: seq } = await sb.rpc("nextval_case_code");
-  let caseNumber: number;
-  if (typeof seq === "number") {
-    caseNumber = seq;
-  } else {
-    // Fallback: count + 1
-    const { count } = await sb.from("emergency_cases").select("id", { count: "exact", head: true });
-    caseNumber = (count ?? 0) + 1;
-  }
+  // 6. Generate case code from current count
+  const { count } = await sb.from("emergency_cases").select("id", { count: "exact", head: true });
+  const caseNumber = (count ?? 0) + 1;
   const caseCode = `SATE-2025-${String(caseNumber).padStart(4, "0")}`;
 
   // 7. Insert case
