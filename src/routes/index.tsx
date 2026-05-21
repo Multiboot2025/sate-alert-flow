@@ -16,7 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Activity, AlertTriangle, HeartPulse, Hospital, Loader2, Play, Siren, Stethoscope } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Activity, AlertTriangle, BellRing, CheckCircle2, FileCheck2, Gauge, HeartPulse, Hospital, Loader2, Play, ShieldAlert, Siren, Stethoscope, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -81,6 +82,7 @@ const SCENARIOS = [
 function HomePage() {
   const [authed, setAuthed] = useState(false);
   const [cases, setCases] = useState<CaseRow[]>([]);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -166,7 +168,10 @@ function HomePage() {
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-4">
-            <CasesTable cases={cases} />
+            <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+              <CasesTable cases={cases} onSelect={setSelectedCaseId} />
+              <AgentRulesPanel />
+            </div>
           </TabsContent>
 
           <TabsContent value="simulator" className="mt-4">
@@ -178,6 +183,7 @@ function HomePage() {
           </TabsContent>
         </Tabs>
       </main>
+      <CaseDetailDrawer caseId={selectedCaseId} onClose={() => setSelectedCaseId(null)} />
     </div>
   );
 }
@@ -196,7 +202,7 @@ function KpiCard({ icon, label, value, accent }: { icon: React.ReactNode; label:
   );
 }
 
-function CasesTable({ cases }: { cases: CaseRow[] }) {
+function CasesTable({ cases, onSelect }: { cases: CaseRow[]; onSelect: (id: string) => void }) {
   return (
     <Card>
       <CardHeader>
@@ -223,7 +229,11 @@ function CasesTable({ cases }: { cases: CaseRow[] }) {
               </thead>
               <tbody>
                 {cases.map((c) => (
-                  <tr key={c.id} className="border-b border-border/30 transition-colors hover:bg-muted/40">
+                  <tr
+                    key={c.id}
+                    onClick={() => onSelect(c.id)}
+                    className="cursor-pointer border-b border-border/30 transition-colors hover:bg-muted/40"
+                  >
                     <td className="py-2 pr-3 font-mono text-xs">{c.case_code}</td>
                     <td className="py-2 pr-3 max-w-xs truncate">{c.chief_complaint}</td>
                     <td className="py-2 pr-3">T{c.triage_level ?? "-"}</td>
@@ -247,10 +257,309 @@ function CasesTable({ cases }: { cases: CaseRow[] }) {
                 ))}
               </tbody>
             </table>
+            <p className="mt-3 text-xs text-muted-foreground">💡 Haz clic en un caso para ver la trazabilidad del agente paso a paso.</p>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+const AGENT_RULES: Array<{ label: string; pts: string; cond: string }> = [
+  { label: "Triaje crítico (T1)", pts: "+40", cond: "triage_level === 1" },
+  { label: "Triaje emergente (T2)", pts: "+25", cond: "triage_level === 2" },
+  { label: "Triaje urgente (T3)", pts: "+10", cond: "triage_level === 3" },
+  { label: "Pre-existencia grave", pts: "+15", cond: "severity === 'grave'" },
+  { label: "Pre-existencia moderada", pts: "+8", cond: "severity === 'moderada'" },
+  { label: "SpO₂ baja", pts: "+20", cond: "oxygen_saturation < 92%" },
+  { label: "Presión sistólica anormal", pts: "+15", cond: "BP < 90 ó > 180 mmHg" },
+  { label: "FC anormal", pts: "+10", cond: "HR < 50 ó > 120 lpm" },
+  { label: "Adulto mayor", pts: "+10", cond: "edad > 65 años" },
+];
+
+function AgentRulesPanel() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ShieldAlert className="h-4 w-4 text-primary" /> Reglas activas del agente
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs">
+          <div className="mb-2 font-semibold text-foreground">Clasificación por score</div>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-low)]/15 text-[color:var(--risk-low)] border-[color:var(--risk-low)]/30">BAJO &lt; 30</span>
+            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-medium)]/15 text-[color:var(--risk-medium)] border-[color:var(--risk-medium)]/30">MEDIO 30-54</span>
+            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-high)]/15 text-[color:var(--risk-high)] border-[color:var(--risk-high)]/30">ALTO 55-79</span>
+            <span className="rounded border px-1.5 py-0.5 bg-destructive/15 text-destructive border-destructive/30">CRÍTICO ≥ 80</span>
+          </div>
+        </div>
+        <ul className="space-y-1.5 text-xs">
+          {AGENT_RULES.map((r) => (
+            <li key={r.label} className="flex items-start gap-2 rounded-md border border-border/40 p-2">
+              <span className="mt-0.5 inline-flex h-5 min-w-[36px] items-center justify-center rounded bg-primary/15 px-1.5 font-mono text-[10px] font-bold text-primary">
+                {r.pts}
+              </span>
+              <div className="min-w-0">
+                <div className="font-medium">{r.label}</div>
+                <code className="block truncate text-[10px] text-muted-foreground">{r.cond}</code>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <p className="text-[11px] text-muted-foreground">
+          Si <code>OPENAI_API_KEY</code> está configurada el motor IA reemplaza este puntaje; si falla, el agente cae automáticamente a estas reglas.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose: () => void }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!caseId) {
+      setData(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      const [{ data: c }, { data: notifs }] = await Promise.all([
+        supabase
+          .from("emergency_cases")
+          .select(
+            `*,
+            policyholder:policyholders(full_name, national_id, date_of_birth),
+            policy:policies(policy_number, plan_type, status, start_date, end_date, coverage_limit, deductible),
+            hospital:hospitals(name),
+            manager:case_managers!emergency_cases_assigned_manager_id_fkey(full_name, email, phone)`,
+          )
+          .eq("id", caseId)
+          .maybeSingle(),
+        supabase.from("notifications").select("*").eq("case_id", caseId).order("created_at", { ascending: true }),
+      ]);
+      let history: any[] = [];
+      if (c?.policyholder_id) {
+        const { data: h } = await supabase
+          .from("medical_history")
+          .select("condition, severity, is_preexisting, diagnosed_at")
+          .eq("policyholder_id", c.policyholder_id);
+        history = h ?? [];
+      }
+      if (alive) {
+        setData({ c, notifs: notifs ?? [], history });
+        setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [caseId]);
+
+  const c = data?.c;
+  const preexisting = (data?.history ?? []).filter((h: any) => h.is_preexisting);
+  const risk = c?.risk_analysis ?? {};
+  const policyValid = c?.policy_validation_status === "valid";
+
+  return (
+    <Sheet open={!!caseId} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader>
+          <SheetTitle className="font-mono text-base">{c?.case_code ?? "Caso"}</SheetTitle>
+          <SheetDescription>Trazabilidad del agente SATE — qué validó y por qué.</SheetDescription>
+        </SheetHeader>
+
+        {loading || !c ? (
+          <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando trazabilidad…
+          </div>
+        ) : (
+          <div className="mt-4 space-y-4">
+            {/* Paciente */}
+            <Step
+              n={1}
+              title="Identificación del paciente"
+              icon={<HeartPulse className="h-4 w-4" />}
+              ok={!!c.policyholder}
+            >
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <Field k="Nombre" v={c.policyholder?.full_name} />
+                <Field k="Cédula" v={c.policyholder?.national_id} />
+                <Field k="Motivo" v={c.chief_complaint} full />
+                <Field k="Hospital" v={c.hospital?.name} />
+                <Field k="Triage" v={`T${c.triage_level ?? "-"}`} />
+              </div>
+            </Step>
+
+            {/* Póliza */}
+            <Step
+              n={2}
+              title="Validación de póliza"
+              icon={<FileCheck2 className="h-4 w-4" />}
+              ok={policyValid}
+            >
+              {c.policy ? (
+                <div className="space-y-2 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field k="Número" v={c.policy.policy_number} />
+                    <Field k="Plan" v={c.policy.plan_type} />
+                    <Field k="Vigencia" v={`${c.policy.start_date} → ${c.policy.end_date}`} full />
+                    <Field k="Cobertura" v={`US$ ${Number(c.policy.coverage_limit).toLocaleString("es-EC")}`} />
+                    <Field k="Deducible" v={`US$ ${Number(c.policy.deductible).toLocaleString("es-EC")}`} />
+                  </div>
+                  <div
+                    className={`flex items-start gap-2 rounded-md border p-2 text-xs ${
+                      policyValid
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                        : "border-destructive/30 bg-destructive/10 text-destructive"
+                    }`}
+                  >
+                    {policyValid ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+                    <div>
+                      <div className="font-semibold uppercase">{c.policy_validation_status}</div>
+                      <div>{c.policy_validation_notes}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-destructive">No se encontró póliza asociada.</p>
+              )}
+            </Step>
+
+            {/* Pre-existencias */}
+            <Step
+              n={3}
+              title={`Pre-existencias detectadas (${preexisting.length})`}
+              icon={<AlertTriangle className="h-4 w-4" />}
+              ok={preexisting.length === 0}
+            >
+              {preexisting.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sin pre-existencias registradas.</p>
+              ) : (
+                <ul className="space-y-1.5 text-sm">
+                  {preexisting.map((h: any, i: number) => (
+                    <li key={i} className="flex items-center justify-between rounded border border-border/40 p-2">
+                      <span>{h.condition}</span>
+                      <Badge variant={h.severity === "grave" ? "destructive" : "secondary"}>
+                        {h.severity ?? "—"}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Step>
+
+            {/* Riesgo */}
+            <Step n={4} title="Análisis de riesgo" icon={<Gauge className="h-4 w-4" />} ok={c.risk_level !== "critical"}>
+              <div className="mb-3 flex items-center gap-3">
+                <div
+                  className={`flex h-16 w-16 flex-col items-center justify-center rounded-xl border-2 font-bold ${
+                    c.risk_level ? riskColor[c.risk_level as RiskLevel] : ""
+                  }`}
+                >
+                  <span className="text-xl">{c.risk_score}</span>
+                  <span className="text-[10px]">{c.risk_level ? riskLabel[c.risk_level as RiskLevel] : ""}</span>
+                </div>
+                <div className="text-xs">
+                  <div className="text-muted-foreground">Motor</div>
+                  <Badge variant="outline" className="mt-0.5 font-mono">{c.ai_engine}</Badge>
+                </div>
+              </div>
+              {risk.key_factors?.length > 0 && (
+                <div className="mb-3">
+                  <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Factores que sumaron</div>
+                  <ul className="space-y-1 text-sm">
+                    {risk.key_factors.map((f: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {risk.recommended_actions?.length > 0 && (
+                <div>
+                  <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Acciones recomendadas</div>
+                  <ul className="space-y-1 text-sm">
+                    {risk.recommended_actions.map((a: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Step>
+
+            {/* Notificaciones */}
+            <Step n={5} title={`Notificaciones enviadas (${data.notifs.length})`} icon={<BellRing className="h-4 w-4" />} ok={data.notifs.length > 0}>
+              {data.notifs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aún no se han enviado notificaciones.</p>
+              ) : (
+                <div className="space-y-2">
+                  {data.notifs.map((n: any) => (
+                    <div key={n.id} className="rounded-md border border-border/40 p-2">
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <Badge variant="outline" className="text-[10px] uppercase">{n.recipient_type}</Badge>
+                        <span className="text-muted-foreground">{n.channel} → {n.recipient_name}</span>
+                      </div>
+                      <div className="text-sm font-semibold">{n.subject}</div>
+                      <pre className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{n.body}</pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Step>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function Step({
+  n,
+  title,
+  icon,
+  ok,
+  children,
+}: {
+  n: number;
+  title: string;
+  icon: React.ReactNode;
+  ok: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-card/40 p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span
+          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+            ok ? "bg-emerald-500/15 text-emerald-500" : "bg-amber-500/15 text-amber-500"
+          }`}
+        >
+          {n}
+        </span>
+        <span className="text-primary">{icon}</span>
+        <h3 className="text-sm font-semibold">{title}</h3>
+      </div>
+      <div className="pl-8">{children}</div>
+    </div>
+  );
+}
+
+function Field({ k, v, full }: { k: string; v: React.ReactNode; full?: boolean }) {
+  return (
+    <div className={full ? "col-span-2" : ""}>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{k}</div>
+      <div className="truncate">{v ?? "—"}</div>
+    </div>
   );
 }
 
