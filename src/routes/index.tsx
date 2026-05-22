@@ -884,16 +884,16 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
 
         {/* Coincidencia en BD */}
         {(snap.rawPatient || snap.rawHistory) && (
-          <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5 text-xs">
-            <div className="mb-2 flex items-center justify-between font-semibold">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Coincidencia en BD
+          <div className="rounded-lg border-2 border-emerald-500/50 bg-emerald-500/5 p-3 shadow-md">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 className="h-5 w-5" /> COINCIDENCIA EN BASE DE DATOS
               </span>
               {snap.queryMs != null && (
-                <Badge variant="outline" className="text-[10px]">{snap.queryMs} ms</Badge>
+                <Badge className="bg-emerald-600 text-white">⚡ {snap.queryMs} ms</Badge>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {snap.rawPatient && (
                 <DbMatchRow
                   table="policyholders"
@@ -911,7 +911,7 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
               {snap.rawHistory && snap.rawHistory.length > 0 && (
                 <DbMatchRow
                   table="medical_history"
-                  query={`policyholder_id = '${snap.rawPatient?.id ?? ""}' · ${snap.rawHistory.length} filas`}
+                  query={`policyholder_id = '${snap.rawPatient?.id ?? ""}'`}
                   row={snap.rawHistory}
                 />
               )}
@@ -996,29 +996,34 @@ function DemoRunner({ onDone }: { onDone: () => void }) {
 }
 
 function DbMatchRow({ table, query, row }: { table: string; query: string; row: any }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const isArray = Array.isArray(row);
   const idLabel = isArray
-    ? `[${row.length} registros]`
-    : (row?.id ? String(row.id).slice(0, 8) + "…" : "");
+    ? `${row.length} filas`
+    : (row?.id ? String(row.id) : "");
+  const count = isArray ? row.length : 1;
   return (
-    <div className="rounded border border-border/60 bg-background/60">
+    <div className="overflow-hidden rounded-md border-2 border-primary/40 bg-background shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left hover:bg-muted/40"
+        className="flex w-full items-center justify-between gap-3 bg-primary/10 px-3 py-2 text-left hover:bg-primary/15"
       >
-        <span className="flex items-center gap-2 min-w-0">
-          <Badge variant="outline" className="font-mono text-[10px]">{table}</Badge>
-          <span className="truncate text-[10px] text-muted-foreground">{query}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+          <Badge className="bg-primary font-mono text-[11px] text-primary-foreground">{table}</Badge>
+          <code className="truncate text-[11px] text-foreground/80">WHERE {query}</code>
         </span>
-        <span className="flex items-center gap-1.5 shrink-0">
-          <span className="font-mono text-[10px] text-primary">{idLabel}</span>
-          <span className="text-[10px] text-muted-foreground">{open ? "▾" : "▸"}</span>
+        <span className="flex shrink-0 items-center gap-2">
+          <Badge variant="secondary" className="text-[10px]">{count} {count === 1 ? "registro" : "registros"}</Badge>
+          <span className="text-sm text-muted-foreground">{open ? "▾" : "▸"}</span>
         </span>
       </button>
+      <div className="border-t border-primary/20 bg-muted/40 px-3 py-1.5 font-mono text-[10px] text-muted-foreground">
+        id: <span className="text-primary">{idLabel || "—"}</span>
+      </div>
       {open && (
-        <pre className="max-h-60 overflow-auto border-t border-border/60 bg-muted/30 p-2 font-mono text-[10px] leading-tight text-foreground">
+        <pre className="max-h-80 overflow-auto border-t border-primary/20 bg-foreground/[0.03] p-3 font-mono text-[11px] leading-snug text-foreground">
 {JSON.stringify(row, null, 2)}
         </pre>
       )}
