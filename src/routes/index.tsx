@@ -884,16 +884,16 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
 
         {/* Coincidencia en BD */}
         {(snap.rawPatient || snap.rawHistory) && (
-          <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5 text-xs">
-            <div className="mb-2 flex items-center justify-between font-semibold">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Coincidencia en BD
+          <div className="rounded-lg border-2 border-emerald-500/50 bg-emerald-500/5 p-3 shadow-md">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 className="h-5 w-5" /> COINCIDENCIA EN BASE DE DATOS
               </span>
               {snap.queryMs != null && (
-                <Badge variant="outline" className="text-[10px]">{snap.queryMs} ms</Badge>
+                <Badge className="bg-emerald-600 text-white">⚡ {snap.queryMs} ms</Badge>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {snap.rawPatient && (
                 <DbMatchRow
                   table="policyholders"
@@ -911,7 +911,7 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
               {snap.rawHistory && snap.rawHistory.length > 0 && (
                 <DbMatchRow
                   table="medical_history"
-                  query={`policyholder_id = '${snap.rawPatient?.id ?? ""}' · ${snap.rawHistory.length} filas`}
+                  query={`policyholder_id = '${snap.rawPatient?.id ?? ""}'`}
                   row={snap.rawHistory}
                 />
               )}
