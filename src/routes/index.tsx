@@ -375,17 +375,8 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
 
         const dbMatches = [
           { table: "emergency_cases", query: `id = '${caseId}'`, row: c },
-          hydratedCase.policyholder
-            ? { table: "policyholders", query: `id = '${c.policyholder_id}'`, row: hydratedCase.policyholder }
-            : null,
-          hydratedCase.policy
-            ? { table: "policies", query: `id = '${c.policy_id}'`, row: hydratedCase.policy }
-            : null,
           history.length > 0
             ? { table: "medical_history", query: `policyholder_id = '${c.policyholder_id}'`, row: history }
-            : null,
-          (notifs ?? []).length > 0
-            ? { table: "notifications", query: `case_id = '${caseId}'`, row: notifs }
             : null,
         ].filter(Boolean);
 
