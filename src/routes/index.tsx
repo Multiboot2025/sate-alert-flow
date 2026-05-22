@@ -506,8 +506,41 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
               )}
             </Step>
 
+            <Step
+              n={4}
+              title="Coincidencia visible en BD"
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              ok={dbMatches.length > 0}
+            >
+              {dbMatches.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No se encontraron coincidencias relacionadas para este caso.</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg border-2 border-emerald-500/50 bg-emerald-500/5 p-3 shadow-sm">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="h-5 w-5" />
+                      REGISTROS ENCONTRADOS EN BASE DE DATOS
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Aquí ves exactamente qué fila coincidió para construir esta trazabilidad.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {dbMatches.map((match: any) => (
+                      <DbMatchRow
+                        key={`${match.table}-${match.query}`}
+                        table={match.table}
+                        query={match.query}
+                        row={match.row}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Step>
+
             {/* Riesgo */}
-            <Step n={4} title="Análisis de riesgo" icon={<Gauge className="h-4 w-4" />} ok={c.risk_level !== "critical"}>
+            <Step n={5} title="Análisis de riesgo" icon={<Gauge className="h-4 w-4" />} ok={c.risk_level !== "critical"}>
               <div className="mb-3 flex items-center gap-3">
                 <div
                   className={`flex h-16 w-16 flex-col items-center justify-center rounded-xl border-2 font-bold ${
@@ -551,7 +584,7 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
             </Step>
 
             {/* Notificaciones */}
-            <Step n={5} title={`Notificaciones enviadas (${data.notifs.length})`} icon={<BellRing className="h-4 w-4" />} ok={data.notifs.length > 0}>
+            <Step n={6} title={`Notificaciones enviadas (${data.notifs.length})`} icon={<BellRing className="h-4 w-4" />} ok={data.notifs.length > 0}>
               {data.notifs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Aún no se han enviado notificaciones.</p>
               ) : (
