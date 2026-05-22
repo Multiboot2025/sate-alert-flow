@@ -323,36 +323,80 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
   useEffect(() => {
     if (!caseId) {
       setData(null);
+      setLoading(false);
       return;
     }
     let alive = true;
     (async () => {
       setLoading(true);
-      const [{ data: c }, { data: notifs }] = await Promise.all([
-        supabase
-          .from("emergency_cases")
-          .select(
-            `*,
-            policyholder:policyholders(full_name, national_id, date_of_birth),
-            policy:policies(policy_number, plan_type, status, start_date, end_date, coverage_limit, deductible),
-            hospital:hospitals(name),
-            manager:case_managers!emergency_cases_assigned_manager_id_fkey(full_name, email, phone)`,
-          )
-          .eq("id", caseId)
-          .maybeSingle(),
-        supabase.from("notifications").select("*").eq("case_id", caseId).order("created_at", { ascending: true }),
-      ]);
-      let history: any[] = [];
-      if (c?.policyholder_id) {
-        const { data: h } = await supabase
-          .from("medical_history")
-          .select("condition, severity, is_preexisting, diagnosed_at")
-          .eq("policyholder_id", c.policyholder_id);
-        history = h ?? [];
-      }
-      if (alive) {
-        setData({ c, notifs: notifs ?? [], history });
-        setLoading(false);
+      try {
+        const [{ data: c, error: caseError }, { data: notifs, error: notifsError }] = await Promise.all([
+          supabase.from("emergency_cases").select("*").eq("id", caseId).maybeSingle(),
+          supabase.from("notifications").select("*").eq("case_id", caseId).order("sent_at", { ascending: true }),
+        ]);
+
+        if (caseError) throw caseError;
+        if (notifsError) throw notifsError;
+
+        if (!c) {
+          if (alive) setData({ c: null, notifs: [], history: [], dbMatches: [], error: null });
+          return;
+        }
+
+        const [policyholderRes, policyRes, hospitalRes, managerRes, historyRes] = await Promise.all([
+          c.policyholder_id
+            ? supabase.from("policyholders").select("*").eq("id", c.policyholder_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          c.policy_id
+            ? supabase.from("policies").select("*").eq("id", c.policy_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          c.hospital_id
+            ? supabase.from("hospitals").select("id, name, city, admissions_contact").eq("id", c.hospital_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          c.assigned_manager_id
+            ? supabase.from("case_managers").select("id, full_name, email, specialty, is_on_call").eq("id", c.assigned_manager_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          c.policyholder_id
+            ? supabase.from("medical_history").select("*").eq("policyholder_id", c.policyholder_id)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+        const relationErrors = [policyholderRes.error, policyRes.error, hospitalRes.error, managerRes.error, historyRes.error].filter(Boolean);
+        if (relationErrors.length > 0) throw relationErrors[0];
+
+        const history = historyRes.data ?? [];
+        const hydratedCase = {
+          ...c,
+          policyholder: policyholderRes.data ?? null,
+          policy: policyRes.data ?? null,
+          hospital: hospitalRes.data ?? null,
+          manager: managerRes.data ?? null,
+        };
+
+        const dbMatches = [
+          { table: "emergency_cases", query: `id = '${caseId}'`, row: c },
+          hydratedCase.policyholder
+            ? { table: "policyholders", query: `id = '${c.policyholder_id}'`, row: hydratedCase.policyholder }
+            : null,
+          hydratedCase.policy
+            ? { table: "policies", query: `id = '${c.policy_id}'`, row: hydratedCase.policy }
+            : null,
+          history.length > 0
+            ? { table: "medical_history", query: `policyholder_id = '${c.policyholder_id}'`, row: history }
+            : null,
+          (notifs ?? []).length > 0
+            ? { table: "notifications", query: `case_id = '${caseId}'`, row: notifs }
+            : null,
+        ].filter(Boolean);
+
+        if (alive) setData({ c: hydratedCase, notifs: notifs ?? [], history, dbMatches, error: null });
+      } catch (error: any) {
+        if (alive) {
+          setData({ c: null, notifs: [], history: [], dbMatches: [], error: error?.message ?? "Error cargando trazabilidad" });
+          toast.error(`No se pudo cargar la trazabilidad: ${error?.message ?? "error desconocido"}`);
+        }
+      } finally {
+        if (alive) setLoading(false);
       }
     })();
     return () => {
@@ -361,6 +405,7 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
   }, [caseId]);
 
   const c = data?.c;
+  const dbMatches = data?.dbMatches ?? [];
   const preexisting = (data?.history ?? []).filter((h: any) => h.is_preexisting);
   const risk = c?.risk_analysis ?? {};
   const policyValid = c?.policy_validation_status === "valid";
@@ -373,9 +418,17 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
           <SheetDescription>Trazabilidad del agente SATE — qué validó y por qué.</SheetDescription>
         </SheetHeader>
 
-        {loading || !c ? (
+        {loading ? (
           <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando trazabilidad…
+          </div>
+        ) : data?.error ? (
+          <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            No se pudo cargar la trazabilidad: {data.error}
+          </div>
+        ) : !c ? (
+          <div className="mt-4 rounded-lg border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+            No se encontró información del caso seleccionado.
           </div>
         ) : (
           <div className="mt-4 space-y-4">
@@ -453,8 +506,41 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
               )}
             </Step>
 
+            <Step
+              n={4}
+              title="Coincidencia visible en BD"
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              ok={dbMatches.length > 0}
+            >
+              {dbMatches.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No se encontraron coincidencias relacionadas para este caso.</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg border-2 border-emerald-500/50 bg-emerald-500/5 p-3 shadow-sm">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="h-5 w-5" />
+                      REGISTROS ENCONTRADOS EN BASE DE DATOS
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Aquí ves exactamente qué fila coincidió para construir esta trazabilidad.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {dbMatches.map((match: any) => (
+                      <DbMatchRow
+                        key={`${match.table}-${match.query}`}
+                        table={match.table}
+                        query={match.query}
+                        row={match.row}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Step>
+
             {/* Riesgo */}
-            <Step n={4} title="Análisis de riesgo" icon={<Gauge className="h-4 w-4" />} ok={c.risk_level !== "critical"}>
+            <Step n={5} title="Análisis de riesgo" icon={<Gauge className="h-4 w-4" />} ok={c.risk_level !== "critical"}>
               <div className="mb-3 flex items-center gap-3">
                 <div
                   className={`flex h-16 w-16 flex-col items-center justify-center rounded-xl border-2 font-bold ${
@@ -498,7 +584,7 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
             </Step>
 
             {/* Notificaciones */}
-            <Step n={5} title={`Notificaciones enviadas (${data.notifs.length})`} icon={<BellRing className="h-4 w-4" />} ok={data.notifs.length > 0}>
+            <Step n={6} title={`Notificaciones enviadas (${data.notifs.length})`} icon={<BellRing className="h-4 w-4" />} ok={data.notifs.length > 0}>
               {data.notifs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Aún no se han enviado notificaciones.</p>
               ) : (
