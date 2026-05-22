@@ -1,14 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  ensureAndSignInDemo,
-  invokeWebhook,
-  riskColor,
-  riskLabel,
-  statusLabel,
-  type RiskLevel,
-} from "@/lib/sate";
+import { ensureAndSignInDemo, invokeWebhook, riskColor, riskLabel, statusLabel, type RiskLevel } from "@/lib/sate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,14 +10,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Activity, AlertTriangle, BellRing, CheckCircle2, FileCheck2, Gauge, HeartPulse, Hospital, Loader2, Play, ShieldAlert, Siren, Stethoscope, User, XCircle } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  BellRing,
+  CheckCircle2,
+  FileCheck2,
+  Gauge,
+  HeartPulse,
+  Hospital,
+  Loader2,
+  Play,
+  ShieldAlert,
+  Siren,
+  Stethoscope,
+  User,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "SATE — Sistema de Alerta Temprana de Emergencias" },
-      { name: "description", content: "Sistema de Alerta Temprana de Ingresos a Emergencias para aseguradoras de salud." },
+      {
+        name: "description",
+        content: "Sistema de Alerta Temprana de Ingresos a Emergencias para aseguradoras de salud.",
+      },
     ],
   }),
   component: HomePage,
@@ -54,7 +66,14 @@ const SCENARIOS = [
       patient_national_id: "1001234567",
       chief_complaint: "Dolor torácico opresivo irradiado a brazo izquierdo, disnea súbita",
       triage_level: 1,
-      vital_signs: { heart_rate: 132, systolic_bp: 178, diastolic_bp: 105, oxygen_saturation: 89, temperature: 37.2, respiratory_rate: 28 },
+      vital_signs: {
+        heart_rate: 132,
+        systolic_bp: 178,
+        diastolic_bp: 105,
+        oxygen_saturation: 89,
+        temperature: 37.2,
+        respiratory_rate: 28,
+      },
     },
   },
   {
@@ -64,7 +83,14 @@ const SCENARIOS = [
       patient_national_id: "1001234570",
       chief_complaint: "Politraumatismo por accidente de tránsito, fractura abierta",
       triage_level: 2,
-      vital_signs: { heart_rate: 118, systolic_bp: 95, diastolic_bp: 60, oxygen_saturation: 94, temperature: 36.5, respiratory_rate: 24 },
+      vital_signs: {
+        heart_rate: 118,
+        systolic_bp: 95,
+        diastolic_bp: 60,
+        oxygen_saturation: 94,
+        temperature: 36.5,
+        respiratory_rate: 24,
+      },
     },
   },
   {
@@ -74,7 +100,14 @@ const SCENARIOS = [
       patient_national_id: "1001234572",
       chief_complaint: "Fiebre alta persistente con vómito y deshidratación moderada",
       triage_level: 3,
-      vital_signs: { heart_rate: 102, systolic_bp: 122, diastolic_bp: 78, oxygen_saturation: 97, temperature: 39.4, respiratory_rate: 20 },
+      vital_signs: {
+        heart_rate: 102,
+        systolic_bp: 122,
+        diastolic_bp: 78,
+        oxygen_saturation: 97,
+        temperature: 39.4,
+        respiratory_rate: 20,
+      },
     },
   },
 ];
@@ -103,7 +136,9 @@ function HomePage() {
   const refreshCases = async () => {
     const { data, error } = await supabase
       .from("emergency_cases")
-      .select("id, case_code, chief_complaint, status, triage_level, risk_score, risk_level, ai_engine, policy_validation_status, admitted_at, hospital_id")
+      .select(
+        "id, case_code, chief_complaint, status, triage_level, risk_score, risk_level, ai_engine, policy_validation_status, admitted_at, hospital_id",
+      )
       .order("admitted_at", { ascending: false })
       .limit(25);
     if (!error && data) setCases(data as CaseRow[]);
@@ -145,7 +180,9 @@ function HomePage() {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="gap-1.5">
-              <span className={`h-2 w-2 rounded-full ${authed ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
+              <span
+                className={`h-2 w-2 rounded-full ${authed ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`}
+              />
               {authed ? "Conectado" : "Conectando…"}
             </Badge>
           </div>
@@ -155,9 +192,24 @@ function HomePage() {
       <main className="mx-auto max-w-7xl px-6 py-6">
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard icon={<Activity className="h-4 w-4" />} label="Casos totales" value={kpis.total} />
-          <KpiCard icon={<HeartPulse className="h-4 w-4" />} label="Abiertos" value={kpis.open} accent="text-emerald-500" />
-          <KpiCard icon={<AlertTriangle className="h-4 w-4" />} label="Alto / Crítico" value={kpis.critical} accent="text-destructive" />
-          <KpiCard icon={<Hospital className="h-4 w-4" />} label="Pólizas observadas" value={kpis.denied} accent="text-amber-500" />
+          <KpiCard
+            icon={<HeartPulse className="h-4 w-4" />}
+            label="Abiertos"
+            value={kpis.open}
+            accent="text-emerald-500"
+          />
+          <KpiCard
+            icon={<AlertTriangle className="h-4 w-4" />}
+            label="Alto / Crítico"
+            value={kpis.critical}
+            accent="text-destructive"
+          />
+          <KpiCard
+            icon={<Hospital className="h-4 w-4" />}
+            label="Pólizas observadas"
+            value={kpis.denied}
+            accent="text-amber-500"
+          />
         </section>
 
         <Tabs defaultValue="dashboard" className="mt-6">
@@ -188,7 +240,17 @@ function HomePage() {
   );
 }
 
-function KpiCard({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: number; accent?: string }) {
+function KpiCard({
+  icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  accent?: string;
+}) {
   return (
     <Card>
       <CardContent className="p-4">
@@ -212,7 +274,9 @@ function CasesTable({ cases, onSelect }: { cases: CaseRow[]; onSelect: (id: stri
       </CardHeader>
       <CardContent>
         {cases.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Aún no hay casos. Lanza un escenario desde el Simulador o la pestaña Demo.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Aún no hay casos. Lanza un escenario desde el Simulador o la pestaña Demo.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -239,7 +303,9 @@ function CasesTable({ cases, onSelect }: { cases: CaseRow[]; onSelect: (id: stri
                     <td className="py-2 pr-3">T{c.triage_level ?? "-"}</td>
                     <td className="py-2 pr-3">
                       {c.risk_level ? (
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${riskColor[c.risk_level]}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${riskColor[c.risk_level]}`}
+                        >
                           {riskLabel[c.risk_level]} · {c.risk_score ?? 0}
                         </span>
                       ) : (
@@ -257,7 +323,9 @@ function CasesTable({ cases, onSelect }: { cases: CaseRow[]; onSelect: (id: stri
                 ))}
               </tbody>
             </table>
-            <p className="mt-3 text-xs text-muted-foreground">💡 Haz clic en un caso para ver la trazabilidad del agente paso a paso.</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              💡 Haz clic en un caso para ver la trazabilidad del agente paso a paso.
+            </p>
           </div>
         )}
       </CardContent>
@@ -289,10 +357,18 @@ function AgentRulesPanel() {
         <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs">
           <div className="mb-2 font-semibold text-foreground">Clasificación por score</div>
           <div className="flex flex-wrap gap-1.5">
-            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-low)]/15 text-[color:var(--risk-low)] border-[color:var(--risk-low)]/30">BAJO &lt; 30</span>
-            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-medium)]/15 text-[color:var(--risk-medium)] border-[color:var(--risk-medium)]/30">MEDIO 30-54</span>
-            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-high)]/15 text-[color:var(--risk-high)] border-[color:var(--risk-high)]/30">ALTO 55-79</span>
-            <span className="rounded border px-1.5 py-0.5 bg-destructive/15 text-destructive border-destructive/30">CRÍTICO ≥ 80</span>
+            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-low)]/15 text-[color:var(--risk-low)] border-[color:var(--risk-low)]/30">
+              BAJO &lt; 30
+            </span>
+            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-medium)]/15 text-[color:var(--risk-medium)] border-[color:var(--risk-medium)]/30">
+              MEDIO 30-54
+            </span>
+            <span className="rounded border px-1.5 py-0.5 bg-[color:var(--risk-high)]/15 text-[color:var(--risk-high)] border-[color:var(--risk-high)]/30">
+              ALTO 55-79
+            </span>
+            <span className="rounded border px-1.5 py-0.5 bg-destructive/15 text-destructive border-destructive/30">
+              CRÍTICO ≥ 80
+            </span>
           </div>
         </div>
         <ul className="space-y-1.5 text-xs">
@@ -309,7 +385,8 @@ function AgentRulesPanel() {
           ))}
         </ul>
         <p className="text-[11px] text-muted-foreground">
-          Si <code>OPENAI_API_KEY</code> está configurada el motor IA reemplaza este puntaje; si falla, el agente cae automáticamente a estas reglas.
+          Si <code>OPENAI_API_KEY</code> está configurada el motor IA reemplaza este puntaje; si falla, el agente cae
+          automáticamente a estas reglas.
         </p>
       </CardContent>
     </Card>
@@ -351,17 +428,31 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
             ? supabase.from("policies").select("*").eq("id", c.policy_id).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
           c.hospital_id
-            ? supabase.from("hospitals").select("id, name, city, admissions_contact").eq("id", c.hospital_id).maybeSingle()
+            ? supabase
+                .from("hospitals")
+                .select("id, name, city, admissions_contact")
+                .eq("id", c.hospital_id)
+                .maybeSingle()
             : Promise.resolve({ data: null, error: null }),
           c.assigned_manager_id
-            ? supabase.from("case_managers").select("id, full_name, email, specialty, is_on_call").eq("id", c.assigned_manager_id).maybeSingle()
+            ? supabase
+                .from("case_managers")
+                .select("id, full_name, email, specialty, is_on_call")
+                .eq("id", c.assigned_manager_id)
+                .maybeSingle()
             : Promise.resolve({ data: null, error: null }),
           c.policyholder_id
             ? supabase.from("medical_history").select("*").eq("policyholder_id", c.policyholder_id)
             : Promise.resolve({ data: [], error: null }),
         ]);
 
-        const relationErrors = [policyholderRes.error, policyRes.error, hospitalRes.error, managerRes.error, historyRes.error].filter(Boolean);
+        const relationErrors = [
+          policyholderRes.error,
+          policyRes.error,
+          hospitalRes.error,
+          managerRes.error,
+          historyRes.error,
+        ].filter(Boolean);
         if (relationErrors.length > 0) throw relationErrors[0];
 
         const history = historyRes.data ?? [];
@@ -382,7 +473,13 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
         if (alive) setData({ c: hydratedCase, notifs: notifs ?? [], history, dbMatches, error: null });
       } catch (error: any) {
         if (alive) {
-          setData({ c: null, notifs: [], history: [], dbMatches: [], error: error?.message ?? "Error cargando trazabilidad" });
+          setData({
+            c: null,
+            notifs: [],
+            history: [],
+            dbMatches: [],
+            error: error?.message ?? "Error cargando trazabilidad",
+          });
           toast.error(`No se pudo cargar la trazabilidad: ${error?.message ?? "error desconocido"}`);
         }
       } finally {
@@ -439,12 +536,7 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
             </Step>
 
             {/* Póliza */}
-            <Step
-              n={2}
-              title="Validación de póliza"
-              icon={<FileCheck2 className="h-4 w-4" />}
-              ok={policyValid}
-            >
+            <Step n={2} title="Validación de póliza" icon={<FileCheck2 className="h-4 w-4" />} ok={policyValid}>
               {c.policy ? (
                 <div className="space-y-2 text-sm">
                   <div className="grid grid-cols-2 gap-2">
@@ -461,7 +553,11 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
                         : "border-destructive/30 bg-destructive/10 text-destructive"
                     }`}
                   >
-                    {policyValid ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+                    {policyValid ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                    ) : (
+                      <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    )}
                     <div>
                       <div className="font-semibold uppercase">{c.policy_validation_status}</div>
                       <div>{c.policy_validation_notes}</div>
@@ -487,9 +583,7 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
                   {preexisting.map((h: any, i: number) => (
                     <li key={i} className="flex items-center justify-between rounded border border-border/40 p-2">
                       <span>{h.condition}</span>
-                      <Badge variant={h.severity === "grave" ? "destructive" : "secondary"}>
-                        {h.severity ?? "—"}
-                      </Badge>
+                      <Badge variant={h.severity === "grave" ? "destructive" : "secondary"}>{h.severity ?? "—"}</Badge>
                     </li>
                   ))}
                 </ul>
@@ -503,7 +597,9 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
               ok={dbMatches.length > 0}
             >
               {dbMatches.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No se encontraron coincidencias relacionadas para este caso.</p>
+                <p className="text-sm text-muted-foreground">
+                  No se encontraron coincidencias relacionadas para este caso.
+                </p>
               ) : (
                 <div className="space-y-3">
                   <div className="rounded-lg border-2 border-emerald-500/50 bg-emerald-500/5 p-3 shadow-sm">
@@ -511,9 +607,6 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
                       <CheckCircle2 className="h-5 w-5" />
                       REGISTROS ENCONTRADOS EN BASE DE DATOS
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Aquí ves exactamente qué fila coincidió para construir esta trazabilidad.
-                    </p>
                   </div>
                   <div className="space-y-3">
                     {dbMatches.map((match: any) => (
@@ -530,7 +623,12 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
             </Step>
 
             {/* Riesgo */}
-            <Step n={5} title="Análisis de riesgo" icon={<Gauge className="h-4 w-4" />} ok={c.risk_level !== "critical"}>
+            <Step
+              n={5}
+              title="Análisis de riesgo"
+              icon={<Gauge className="h-4 w-4" />}
+              ok={c.risk_level !== "critical"}
+            >
               <div className="mb-3 flex items-center gap-3">
                 <div
                   className={`flex h-16 w-16 flex-col items-center justify-center rounded-xl border-2 font-bold ${
@@ -542,7 +640,9 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
                 </div>
                 <div className="text-xs">
                   <div className="text-muted-foreground">Motor</div>
-                  <Badge variant="outline" className="mt-0.5 font-mono">{c.ai_engine}</Badge>
+                  <Badge variant="outline" className="mt-0.5 font-mono">
+                    {c.ai_engine}
+                  </Badge>
                 </div>
               </div>
               {risk.key_factors?.length > 0 && (
@@ -560,7 +660,9 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
               )}
               {risk.recommended_actions?.length > 0 && (
                 <div>
-                  <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Acciones recomendadas</div>
+                  <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                    Acciones recomendadas
+                  </div>
                   <ul className="space-y-1 text-sm">
                     {risk.recommended_actions.map((a: string, i: number) => (
                       <li key={i} className="flex items-start gap-2">
@@ -574,7 +676,12 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
             </Step>
 
             {/* Notificaciones */}
-            <Step n={6} title={`Notificaciones enviadas (${data.notifs.length})`} icon={<BellRing className="h-4 w-4" />} ok={data.notifs.length > 0}>
+            <Step
+              n={6}
+              title={`Notificaciones enviadas (${data.notifs.length})`}
+              icon={<BellRing className="h-4 w-4" />}
+              ok={data.notifs.length > 0}
+            >
               {data.notifs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Aún no se han enviado notificaciones.</p>
               ) : (
@@ -582,8 +689,12 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
                   {data.notifs.map((n: any) => (
                     <div key={n.id} className="rounded-md border border-border/40 p-2">
                       <div className="mb-1 flex items-center justify-between text-xs">
-                        <Badge variant="outline" className="text-[10px] uppercase">{n.recipient_type}</Badge>
-                        <span className="text-muted-foreground">{n.channel} → {n.recipient_name}</span>
+                        <Badge variant="outline" className="text-[10px] uppercase">
+                          {n.recipient_type}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {n.channel} → {n.recipient_name}
+                        </span>
                       </div>
                       <div className="text-sm font-semibold">{n.subject}</div>
                       <pre className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{n.body}</pre>
@@ -689,11 +800,19 @@ function Simulator({ onDone }: { onDone: () => void }) {
           </div>
           <div>
             <Label>Cédula del paciente</Label>
-            <Input value={form.patient_national_id} onChange={(e) => setForm({ ...form, patient_national_id: e.target.value })} className="mt-1" />
+            <Input
+              value={form.patient_national_id}
+              onChange={(e) => setForm({ ...form, patient_national_id: e.target.value })}
+              className="mt-1"
+            />
           </div>
           <div>
             <Label>Motivo de consulta</Label>
-            <Input value={form.chief_complaint} onChange={(e) => setForm({ ...form, chief_complaint: e.target.value })} className="mt-1" />
+            <Input
+              value={form.chief_complaint}
+              onChange={(e) => setForm({ ...form, chief_complaint: e.target.value })}
+              className="mt-1"
+            />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -776,7 +895,10 @@ function classify(score: number) {
   return { level: "low" as RiskLevel, label: "BAJO" };
 }
 
-function computeRules(snap: LiveSnapshot, form: any): Array<{ label: string; pts: number; hit: boolean; detail?: string }> {
+function computeRules(
+  snap: LiveSnapshot,
+  form: any,
+): Array<{ label: string; pts: number; hit: boolean; detail?: string }> {
   const rules: Array<{ label: string; pts: number; hit: boolean; detail?: string }> = [];
   const t = form.triage_level;
   rules.push({ label: "Triaje crítico (T1)", pts: t === 1 ? 40 : 0, hit: t === 1 });
@@ -808,7 +930,12 @@ function computeRules(snap: LiveSnapshot, form: any): Array<{ label: string; pts
 
   const sys = form.vital_signs?.systolic_bp;
   const sysAb = typeof sys === "number" && (sys > 180 || sys < 90);
-  rules.push({ label: "Sistólica anormal (<90 ó >180)", pts: sysAb ? 15 : 0, hit: sysAb, detail: sys ? `${sys} mmHg` : undefined });
+  rules.push({
+    label: "Sistólica anormal (<90 ó >180)",
+    pts: sysAb ? 15 : 0,
+    hit: sysAb,
+    detail: sys ? `${sys} mmHg` : undefined,
+  });
 
   const age = snap.patient?.age ?? 0;
   const old = age > 65;
@@ -837,19 +964,30 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
     setSnap((s) => ({ ...s, loading: true }));
     const t = setTimeout(async () => {
       const t0 = performance.now();
-      const { data: patient } = await supabase
-        .from("policyholders")
-        .select("*")
-        .eq("national_id", dni)
-        .maybeSingle();
+      const { data: patient } = await supabase.from("policyholders").select("*").eq("national_id", dni).maybeSingle();
       if (!alive) return;
       if (!patient) {
-        setSnap({ loading: false, patient: null, policy: null, policyValidation: { status: "invalid", notes: "No se encontró asegurado con esta cédula" }, preexisting: [], rawPatient: null, rawHistory: null, matchedAt: new Date().toISOString(), queryMs: Math.round(performance.now() - t0) });
+        setSnap({
+          loading: false,
+          patient: null,
+          policy: null,
+          policyValidation: { status: "invalid", notes: "No se encontró asegurado con esta cédula" },
+          preexisting: [],
+          rawPatient: null,
+          rawHistory: null,
+          matchedAt: new Date().toISOString(),
+          queryMs: Math.round(performance.now() - t0),
+        });
         return;
       }
       const age = Math.floor((Date.now() - new Date(patient.date_of_birth).getTime()) / (365.25 * 24 * 3600 * 1000));
       const [{ data: policies }, { data: history }] = await Promise.all([
-        supabase.from("policies").select("*").eq("policyholder_id", patient.id).order("end_date", { ascending: false }).limit(1),
+        supabase
+          .from("policies")
+          .select("*")
+          .eq("policyholder_id", patient.id)
+          .order("end_date", { ascending: false })
+          .limit(1),
         supabase.from("medical_history").select("*").eq("policyholder_id", patient.id),
       ]);
       const policy = policies?.[0] ?? null;
@@ -862,7 +1000,10 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
         const now = new Date();
         const start = new Date(policy.start_date);
         const end = new Date(policy.end_date);
-        policyValidation = now >= start && now <= end ? { status: "valid", notes: "Póliza vigente y al día" } : { status: "expired", notes: "Fuera del periodo de vigencia" };
+        policyValidation =
+          now >= start && now <= end
+            ? { status: "valid", notes: "Póliza vigente y al día" }
+            : { status: "expired", notes: "Fuera del periodo de vigencia" };
       }
       if (!alive) return;
       setSnap({
@@ -870,7 +1011,9 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
         patient: { full_name: patient.full_name, date_of_birth: patient.date_of_birth, age },
         policy,
         policyValidation,
-        preexisting: (history ?? []).filter((h: any) => h.is_preexisting).map((h: any) => ({ condition: h.condition, severity: h.severity })),
+        preexisting: (history ?? [])
+          .filter((h: any) => h.is_preexisting)
+          .map((h: any) => ({ condition: h.condition, severity: h.severity })),
         rawPatient: patient,
         rawHistory: history ?? [],
         matchedAt: new Date().toISOString(),
@@ -884,7 +1027,10 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
   }, [form.patient_national_id]);
 
   const rules = computeRules(snap, form);
-  const total = Math.min(100, rules.reduce((acc, r) => acc + r.pts, 0));
+  const total = Math.min(
+    100,
+    rules.reduce((acc, r) => acc + r.pts, 0),
+  );
   const cls = classify(total);
   const policyValid = snap.policyValidation?.status === "valid";
 
@@ -909,7 +1055,8 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
           </div>
           {snap.patient ? (
             <div className="text-muted-foreground">
-              <span className="text-foreground">{snap.patient.full_name}</span> · {snap.patient.age} años · DNI {form.patient_national_id}
+              <span className="text-foreground">{snap.patient.full_name}</span> · {snap.patient.age} años · DNI{" "}
+              {form.patient_national_id}
             </div>
           ) : (
             <div className="text-destructive">No encontrado</div>
@@ -917,7 +1064,9 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
         </div>
 
         {/* Póliza */}
-        <div className={`rounded-md border p-2.5 text-xs ${policyValid ? "border-emerald-500/30 bg-emerald-500/5" : "border-destructive/30 bg-destructive/5"}`}>
+        <div
+          className={`rounded-md border p-2.5 text-xs ${policyValid ? "border-emerald-500/30 bg-emerald-500/5" : "border-destructive/30 bg-destructive/5"}`}
+        >
           <div className="mb-1 flex items-center justify-between font-semibold">
             <span className="flex items-center gap-1.5">
               <FileCheck2 className="h-3.5 w-3.5" /> Póliza
@@ -930,8 +1079,12 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
           </div>
           {snap.policy ? (
             <div className="space-y-0.5 text-muted-foreground">
-              <div>{snap.policy.policy_number} · {snap.policy.plan_type}</div>
-              <div>Vigencia: {snap.policy.start_date} → {snap.policy.end_date}</div>
+              <div>
+                {snap.policy.policy_number} · {snap.policy.plan_type}
+              </div>
+              <div>
+                Vigencia: {snap.policy.start_date} → {snap.policy.end_date}
+              </div>
               <div>Cobertura: US$ {Number(snap.policy.coverage_limit).toLocaleString("es-EC")}</div>
               {snap.policyValidation && <div className="text-foreground">{snap.policyValidation.notes}</div>}
             </div>
@@ -965,9 +1118,7 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
               <span className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
                 <CheckCircle2 className="h-5 w-5" /> COINCIDENCIA EN BASE DE DATOS
               </span>
-              {snap.queryMs != null && (
-                <Badge className="bg-emerald-600 text-white">⚡ {snap.queryMs} ms</Badge>
-              )}
+              {snap.queryMs != null && <Badge className="bg-emerald-600 text-white">⚡ {snap.queryMs} ms</Badge>}
             </div>
             <div className="space-y-3">
               {snap.rawPatient && (
@@ -1011,7 +1162,11 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
                 }`}
               >
                 <span className="flex items-center gap-1.5">
-                  {r.hit ? <CheckCircle2 className="h-3 w-3 text-primary" /> : <span className="h-3 w-3 rounded-full border border-muted-foreground/30" />}
+                  {r.hit ? (
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
+                  ) : (
+                    <span className="h-3 w-3 rounded-full border border-muted-foreground/30" />
+                  )}
                   <span>{r.label}</span>
                   {r.detail && <span className="text-[10px] text-muted-foreground">({r.detail})</span>}
                 </span>
@@ -1023,7 +1178,9 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
           </ul>
           <div className="mt-2 flex items-center justify-between border-t border-border/60 pt-2">
             <span className="text-xs font-semibold">Score predicho</span>
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-bold ${riskColor[cls.level]}`}>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-bold ${riskColor[cls.level]}`}
+            >
               {total} · {cls.label}
             </span>
           </div>
@@ -1031,19 +1188,27 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
 
         {/* Comparación con servidor */}
         {serverResult && !serverResult.error && (
-          <div className={`rounded-md border p-2.5 text-xs ${matches ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+          <div
+            className={`rounded-md border p-2.5 text-xs ${matches ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}
+          >
             <div className="mb-1 flex items-center justify-between font-semibold">
               <span>Comparación con servidor</span>
-              <Badge variant="outline" className="text-[10px]">motor: {serverEngine}</Badge>
+              <Badge variant="outline" className="text-[10px]">
+                motor: {serverEngine}
+              </Badge>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <div className="text-[10px] uppercase text-muted-foreground">Predicho (cliente)</div>
-                <div className="font-mono">{total} · {cls.label}</div>
+                <div className="font-mono">
+                  {total} · {cls.label}
+                </div>
               </div>
               <div>
                 <div className="text-[10px] uppercase text-muted-foreground">Real (servidor)</div>
-                <div className="font-mono">{serverScore} · {String(serverLevel ?? "").toUpperCase()}</div>
+                <div className="font-mono">
+                  {serverScore} · {String(serverLevel ?? "").toUpperCase()}
+                </div>
               </div>
             </div>
             <div className="mt-1.5 text-[11px]">
@@ -1074,9 +1239,7 @@ function DemoRunner({ onDone }: { onDone: () => void }) {
 function DbMatchRow({ table, query, row }: { table: string; query: string; row: any }) {
   const [open, setOpen] = useState(true);
   const isArray = Array.isArray(row);
-  const idLabel = isArray
-    ? `${row.length} filas`
-    : (row?.id ? String(row.id) : "");
+  const idLabel = isArray ? `${row.length} filas` : row?.id ? String(row.id) : "";
   const count = isArray ? row.length : 1;
   return (
     <div className="overflow-hidden rounded-md border-2 border-primary/40 bg-background shadow-sm">
@@ -1091,7 +1254,9 @@ function DbMatchRow({ table, query, row }: { table: string; query: string; row: 
           <code className="truncate text-[11px] text-foreground/80">WHERE {query}</code>
         </span>
         <span className="flex shrink-0 items-center gap-2">
-          <Badge variant="secondary" className="text-[10px]">{count} {count === 1 ? "registro" : "registros"}</Badge>
+          <Badge variant="secondary" className="text-[10px]">
+            {count} {count === 1 ? "registro" : "registros"}
+          </Badge>
           <span className="text-sm text-muted-foreground">{open ? "▾" : "▸"}</span>
         </span>
       </button>
@@ -1100,7 +1265,7 @@ function DbMatchRow({ table, query, row }: { table: string; query: string; row: 
       </div>
       {open && (
         <pre className="max-h-80 overflow-auto border-t border-primary/20 bg-foreground/[0.03] p-3 font-mono text-[11px] leading-snug text-foreground">
-{JSON.stringify(row, null, 2)}
+          {JSON.stringify(row, null, 2)}
         </pre>
       )}
     </div>
@@ -1151,7 +1316,8 @@ function _DemoRunner({ onDone }: { onDone: () => void }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Ejecuta 3 ingresos consecutivos (crítico, alto y medio) con 5 segundos entre cada uno. Mira cómo el dashboard reacciona en tiempo real.
+          Ejecuta 3 ingresos consecutivos (crítico, alto y medio) con 5 segundos entre cada uno. Mira cómo el dashboard
+          reacciona en tiempo real.
         </p>
         <div className="flex gap-2">
           <Button onClick={start} disabled={running} className="gap-2">
