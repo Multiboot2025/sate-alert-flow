@@ -687,6 +687,10 @@ type LiveSnapshot = {
   policy: any | null;
   policyValidation: { status: string; notes: string } | null;
   preexisting: Array<{ condition: string; severity: string | null }>;
+  rawPatient?: any | null;
+  rawHistory?: any[] | null;
+  matchedAt?: string | null;
+  queryMs?: number | null;
 };
 
 function classify(score: number) {
