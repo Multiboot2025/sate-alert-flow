@@ -760,20 +760,21 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
     let alive = true;
     setSnap((s) => ({ ...s, loading: true }));
     const t = setTimeout(async () => {
+      const t0 = performance.now();
       const { data: patient } = await supabase
         .from("policyholders")
-        .select("id, full_name, date_of_birth")
+        .select("*")
         .eq("national_id", dni)
         .maybeSingle();
       if (!alive) return;
       if (!patient) {
-        setSnap({ loading: false, patient: null, policy: null, policyValidation: { status: "invalid", notes: "No se encontró asegurado con esta cédula" }, preexisting: [] });
+        setSnap({ loading: false, patient: null, policy: null, policyValidation: { status: "invalid", notes: "No se encontró asegurado con esta cédula" }, preexisting: [], rawPatient: null, rawHistory: null, matchedAt: new Date().toISOString(), queryMs: Math.round(performance.now() - t0) });
         return;
       }
       const age = Math.floor((Date.now() - new Date(patient.date_of_birth).getTime()) / (365.25 * 24 * 3600 * 1000));
       const [{ data: policies }, { data: history }] = await Promise.all([
         supabase.from("policies").select("*").eq("policyholder_id", patient.id).order("end_date", { ascending: false }).limit(1),
-        supabase.from("medical_history").select("condition, severity, is_preexisting").eq("policyholder_id", patient.id),
+        supabase.from("medical_history").select("*").eq("policyholder_id", patient.id),
       ]);
       const policy = policies?.[0] ?? null;
       let policyValidation: { status: string; notes: string };
@@ -794,6 +795,10 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
         policy,
         policyValidation,
         preexisting: (history ?? []).filter((h: any) => h.is_preexisting).map((h: any) => ({ condition: h.condition, severity: h.severity })),
+        rawPatient: patient,
+        rawHistory: history ?? [],
+        matchedAt: new Date().toISOString(),
+        queryMs: Math.round(performance.now() - t0),
       });
     }, 350);
     return () => {
