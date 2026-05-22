@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Activity, AlertTriangle, BellRing, CheckCircle2, FileCheck2, Gauge, HeartPulse, Hospital, Loader2, Play, ShieldAlert, Siren, Stethoscope, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, BellRing, CheckCircle2, FileCheck2, Gauge, HeartPulse, Hospital, Loader2, Play, ShieldAlert, Siren, Stethoscope, User, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -643,6 +643,30 @@ function Simulator({ onDone }: { onDone: () => void }) {
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>FC (lpm)</Label>
+              <Input
+                type="number"
+                value={form.vital_signs.heart_rate}
+                onChange={(e) =>
+                  setForm({ ...form, vital_signs: { ...form.vital_signs, heart_rate: Number(e.target.value) } })
+                }
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Sistólica (mmHg)</Label>
+              <Input
+                type="number"
+                value={form.vital_signs.systolic_bp}
+                onChange={(e) =>
+                  setForm({ ...form, vital_signs: { ...form.vital_signs, systolic_bp: Number(e.target.value) } })
+                }
+                className="mt-1"
+              />
+            </div>
+          </div>
           <Button onClick={run} disabled={loading} className="w-full gap-2">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             Enviar webhook al SATE
@@ -650,17 +674,274 @@ function Simulator({ onDone }: { onDone: () => void }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Respuesta del orquestador</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <pre className="max-h-[420px] overflow-auto rounded-md bg-muted/40 p-3 text-xs">
-            {lastResult ? JSON.stringify(lastResult, null, 2) : "Esperando ejecución…"}
-          </pre>
-        </CardContent>
-      </Card>
+      <LiveValidation form={form} serverResult={lastResult} />
     </div>
+  );
+}
+
+// ---------- Live validation (mirrors server rules in supabase/functions/_shared/risk.ts) ----------
+
+type LiveSnapshot = {
+  loading: boolean;
+  patient: { full_name: string; date_of_birth: string; age: number } | null;
+  policy: any | null;
+  policyValidation: { status: string; notes: string } | null;
+  preexisting: Array<{ condition: string; severity: string | null }>;
+};
+
+function classify(score: number) {
+  if (score >= 80) return { level: "critical" as RiskLevel, label: "CRÍTICO" };
+  if (score >= 55) return { level: "high" as RiskLevel, label: "ALTO" };
+  if (score >= 30) return { level: "medium" as RiskLevel, label: "MEDIO" };
+  return { level: "low" as RiskLevel, label: "BAJO" };
+}
+
+function computeRules(snap: LiveSnapshot, form: any): Array<{ label: string; pts: number; hit: boolean; detail?: string }> {
+  const rules: Array<{ label: string; pts: number; hit: boolean; detail?: string }> = [];
+  const t = form.triage_level;
+  rules.push({ label: "Triaje crítico (T1)", pts: t === 1 ? 40 : 0, hit: t === 1 });
+  rules.push({ label: "Triaje emergente (T2)", pts: t === 2 ? 25 : 0, hit: t === 2 });
+  rules.push({ label: "Triaje urgente (T3)", pts: t === 3 ? 10 : 0, hit: t === 3 });
+
+  const graves = snap.preexisting.filter((p) => (p.severity ?? "").toLowerCase() === "grave");
+  const moderadas = snap.preexisting.filter((p) => (p.severity ?? "").toLowerCase() === "moderada");
+  rules.push({
+    label: `Pre-existencia grave ×${graves.length}`,
+    pts: graves.length * 15,
+    hit: graves.length > 0,
+    detail: graves.map((g) => g.condition).join(", ") || undefined,
+  });
+  rules.push({
+    label: `Pre-existencia moderada ×${moderadas.length}`,
+    pts: moderadas.length * 8,
+    hit: moderadas.length > 0,
+    detail: moderadas.map((g) => g.condition).join(", ") || undefined,
+  });
+
+  const hr = form.vital_signs?.heart_rate;
+  const hrAb = typeof hr === "number" && (hr > 120 || hr < 50);
+  rules.push({ label: "FC anormal (<50 ó >120)", pts: hrAb ? 10 : 0, hit: hrAb, detail: hr ? `${hr} lpm` : undefined });
+
+  const spo2 = form.vital_signs?.oxygen_saturation;
+  const spo2Low = typeof spo2 === "number" && spo2 < 92;
+  rules.push({ label: "SpO₂ baja (<92%)", pts: spo2Low ? 20 : 0, hit: spo2Low, detail: spo2 ? `${spo2}%` : undefined });
+
+  const sys = form.vital_signs?.systolic_bp;
+  const sysAb = typeof sys === "number" && (sys > 180 || sys < 90);
+  rules.push({ label: "Sistólica anormal (<90 ó >180)", pts: sysAb ? 15 : 0, hit: sysAb, detail: sys ? `${sys} mmHg` : undefined });
+
+  const age = snap.patient?.age ?? 0;
+  const old = age > 65;
+  rules.push({ label: "Adulto mayor (>65)", pts: old ? 10 : 0, hit: old, detail: age ? `${age} años` : undefined });
+
+  return rules;
+}
+
+function LiveValidation({ form, serverResult }: { form: any; serverResult: any }) {
+  const [snap, setSnap] = useState<LiveSnapshot>({
+    loading: false,
+    patient: null,
+    policy: null,
+    policyValidation: null,
+    preexisting: [],
+  });
+
+  // Debounced lookup whenever DNI changes
+  useEffect(() => {
+    const dni = form.patient_national_id?.trim();
+    if (!dni) {
+      setSnap({ loading: false, patient: null, policy: null, policyValidation: null, preexisting: [] });
+      return;
+    }
+    let alive = true;
+    setSnap((s) => ({ ...s, loading: true }));
+    const t = setTimeout(async () => {
+      const { data: patient } = await supabase
+        .from("policyholders")
+        .select("id, full_name, date_of_birth")
+        .eq("national_id", dni)
+        .maybeSingle();
+      if (!alive) return;
+      if (!patient) {
+        setSnap({ loading: false, patient: null, policy: null, policyValidation: { status: "invalid", notes: "No se encontró asegurado con esta cédula" }, preexisting: [] });
+        return;
+      }
+      const age = Math.floor((Date.now() - new Date(patient.date_of_birth).getTime()) / (365.25 * 24 * 3600 * 1000));
+      const [{ data: policies }, { data: history }] = await Promise.all([
+        supabase.from("policies").select("*").eq("policyholder_id", patient.id).order("end_date", { ascending: false }).limit(1),
+        supabase.from("medical_history").select("condition, severity, is_preexisting").eq("policyholder_id", patient.id),
+      ]);
+      const policy = policies?.[0] ?? null;
+      let policyValidation: { status: string; notes: string };
+      if (!policy) policyValidation = { status: "invalid", notes: "No hay póliza asociada" };
+      else if (policy.status === "expired") policyValidation = { status: "expired", notes: "Póliza expirada" };
+      else if (policy.status === "suspended") policyValidation = { status: "suspended", notes: "Póliza suspendida" };
+      else if (policy.status === "cancelled") policyValidation = { status: "invalid", notes: "Póliza cancelada" };
+      else {
+        const now = new Date();
+        const start = new Date(policy.start_date);
+        const end = new Date(policy.end_date);
+        policyValidation = now >= start && now <= end ? { status: "valid", notes: "Póliza vigente y al día" } : { status: "expired", notes: "Fuera del periodo de vigencia" };
+      }
+      if (!alive) return;
+      setSnap({
+        loading: false,
+        patient: { full_name: patient.full_name, date_of_birth: patient.date_of_birth, age },
+        policy,
+        policyValidation,
+        preexisting: (history ?? []).filter((h: any) => h.is_preexisting).map((h: any) => ({ condition: h.condition, severity: h.severity })),
+      });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [form.patient_national_id]);
+
+  const rules = computeRules(snap, form);
+  const total = Math.min(100, rules.reduce((acc, r) => acc + r.pts, 0));
+  const cls = classify(total);
+  const policyValid = snap.policyValidation?.status === "valid";
+
+  const serverScore = serverResult?.risk?.score ?? serverResult?.risk_score;
+  const serverLevel = serverResult?.risk?.level ?? serverResult?.risk_level;
+  const serverEngine = serverResult?.risk?.engine ?? serverResult?.ai_engine;
+  const matches = serverScore != null && Number(serverScore) === total;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ShieldAlert className="h-4 w-4 text-primary" /> Validación en vivo
+          {snap.loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Paciente */}
+        <div className="rounded-md border border-border/60 p-2.5 text-xs">
+          <div className="mb-1 flex items-center gap-1.5 font-semibold">
+            <User className="h-3.5 w-3.5" /> Paciente
+          </div>
+          {snap.patient ? (
+            <div className="text-muted-foreground">
+              <span className="text-foreground">{snap.patient.full_name}</span> · {snap.patient.age} años · DNI {form.patient_national_id}
+            </div>
+          ) : (
+            <div className="text-destructive">No encontrado</div>
+          )}
+        </div>
+
+        {/* Póliza */}
+        <div className={`rounded-md border p-2.5 text-xs ${policyValid ? "border-emerald-500/30 bg-emerald-500/5" : "border-destructive/30 bg-destructive/5"}`}>
+          <div className="mb-1 flex items-center justify-between font-semibold">
+            <span className="flex items-center gap-1.5">
+              <FileCheck2 className="h-3.5 w-3.5" /> Póliza
+            </span>
+            {snap.policyValidation && (
+              <Badge variant={policyValid ? "secondary" : "destructive"} className="text-[10px] uppercase">
+                {snap.policyValidation.status}
+              </Badge>
+            )}
+          </div>
+          {snap.policy ? (
+            <div className="space-y-0.5 text-muted-foreground">
+              <div>{snap.policy.policy_number} · {snap.policy.plan_type}</div>
+              <div>Vigencia: {snap.policy.start_date} → {snap.policy.end_date}</div>
+              <div>Cobertura: US$ {Number(snap.policy.coverage_limit).toLocaleString("es-EC")}</div>
+              {snap.policyValidation && <div className="text-foreground">{snap.policyValidation.notes}</div>}
+            </div>
+          ) : (
+            <div className="text-muted-foreground">{snap.policyValidation?.notes ?? "—"}</div>
+          )}
+        </div>
+
+        {/* Pre-existencias */}
+        <div className="rounded-md border border-border/60 p-2.5 text-xs">
+          <div className="mb-1 flex items-center gap-1.5 font-semibold">
+            <AlertTriangle className="h-3.5 w-3.5" /> Pre-existencias ({snap.preexisting.length})
+          </div>
+          {snap.preexisting.length === 0 ? (
+            <div className="text-muted-foreground">Ninguna registrada</div>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {snap.preexisting.map((p, i) => (
+                <Badge key={i} variant={p.severity === "grave" ? "destructive" : "secondary"} className="text-[10px]">
+                  {p.condition} · {p.severity}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Reglas en vivo */}
+        <div className="rounded-md border border-border/60 p-2.5">
+          <div className="mb-2 flex items-center justify-between text-xs font-semibold">
+            <span className="flex items-center gap-1.5">
+              <Gauge className="h-3.5 w-3.5" /> Reglas evaluadas
+            </span>
+          </div>
+          <ul className="space-y-1 text-xs">
+            {rules.map((r) => (
+              <li
+                key={r.label}
+                className={`flex items-center justify-between rounded px-2 py-1 ${
+                  r.hit ? "bg-primary/10 text-foreground" : "text-muted-foreground/60"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  {r.hit ? <CheckCircle2 className="h-3 w-3 text-primary" /> : <span className="h-3 w-3 rounded-full border border-muted-foreground/30" />}
+                  <span>{r.label}</span>
+                  {r.detail && <span className="text-[10px] text-muted-foreground">({r.detail})</span>}
+                </span>
+                <span className={`font-mono text-[11px] ${r.hit ? "font-bold text-primary" : ""}`}>
+                  {r.pts > 0 ? `+${r.pts}` : "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex items-center justify-between border-t border-border/60 pt-2">
+            <span className="text-xs font-semibold">Score predicho</span>
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-bold ${riskColor[cls.level]}`}>
+              {total} · {cls.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Comparación con servidor */}
+        {serverResult && !serverResult.error && (
+          <div className={`rounded-md border p-2.5 text-xs ${matches ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+            <div className="mb-1 flex items-center justify-between font-semibold">
+              <span>Comparación con servidor</span>
+              <Badge variant="outline" className="text-[10px]">motor: {serverEngine}</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground">Predicho (cliente)</div>
+                <div className="font-mono">{total} · {cls.label}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground">Real (servidor)</div>
+                <div className="font-mono">{serverScore} · {String(serverLevel ?? "").toUpperCase()}</div>
+              </div>
+            </div>
+            <div className="mt-1.5 text-[11px]">
+              {matches ? (
+                <span className="text-emerald-600">✓ El motor de reglas coincide exactamente.</span>
+              ) : serverEngine === "openai" ? (
+                <span className="text-amber-600">⚠ OpenAI ajustó el score con contexto clínico adicional.</span>
+              ) : (
+                <span className="text-amber-600">⚠ Diferencia: revisar reglas.</span>
+              )}
+            </div>
+          </div>
+        )}
+        {serverResult?.error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
+            Error servidor: {serverResult.error}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
