@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Activity, AlertTriangle, BellRing, CheckCircle2, FileCheck2, Gauge, HeartPulse, Hospital, Loader2, Play, ShieldAlert, Siren, Stethoscope, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, BellRing, CheckCircle2, FileCheck2, Gauge, HeartPulse, Hospital, Loader2, Play, ShieldAlert, Siren, Stethoscope, User, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
