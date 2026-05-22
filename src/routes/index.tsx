@@ -374,7 +374,6 @@ function CaseDetailDrawer({ caseId, onClose }: { caseId: string | null; onClose:
         };
 
         const dbMatches = [
-          { table: "emergency_cases", query: `id = '${caseId}'`, row: c },
           history.length > 0
             ? { table: "medical_history", query: `policyholder_id = '${c.policyholder_id}'`, row: history }
             : null,
