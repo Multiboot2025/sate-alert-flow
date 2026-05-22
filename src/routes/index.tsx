@@ -992,6 +992,41 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
 }
 
 function DemoRunner({ onDone }: { onDone: () => void }) {
+  return _DemoRunner({ onDone });
+}
+
+function DbMatchRow({ table, query, row }: { table: string; query: string; row: any }) {
+  const [open, setOpen] = useState(false);
+  const isArray = Array.isArray(row);
+  const idLabel = isArray
+    ? `[${row.length} registros]`
+    : (row?.id ? String(row.id).slice(0, 8) + "…" : "");
+  return (
+    <div className="rounded border border-border/60 bg-background/60">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left hover:bg-muted/40"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <Badge variant="outline" className="font-mono text-[10px]">{table}</Badge>
+          <span className="truncate text-[10px] text-muted-foreground">{query}</span>
+        </span>
+        <span className="flex items-center gap-1.5 shrink-0">
+          <span className="font-mono text-[10px] text-primary">{idLabel}</span>
+          <span className="text-[10px] text-muted-foreground">{open ? "▾" : "▸"}</span>
+        </span>
+      </button>
+      {open && (
+        <pre className="max-h-60 overflow-auto border-t border-border/60 bg-muted/30 p-2 font-mono text-[10px] leading-tight text-foreground">
+{JSON.stringify(row, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function _DemoRunner({ onDone }: { onDone: () => void }) {
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const stopRef = useRef(false);
