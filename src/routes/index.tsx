@@ -687,6 +687,10 @@ type LiveSnapshot = {
   policy: any | null;
   policyValidation: { status: string; notes: string } | null;
   preexisting: Array<{ condition: string; severity: string | null }>;
+  rawPatient?: any | null;
+  rawHistory?: any[] | null;
+  matchedAt?: string | null;
+  queryMs?: number | null;
 };
 
 function classify(score: number) {
@@ -756,20 +760,21 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
     let alive = true;
     setSnap((s) => ({ ...s, loading: true }));
     const t = setTimeout(async () => {
+      const t0 = performance.now();
       const { data: patient } = await supabase
         .from("policyholders")
-        .select("id, full_name, date_of_birth")
+        .select("*")
         .eq("national_id", dni)
         .maybeSingle();
       if (!alive) return;
       if (!patient) {
-        setSnap({ loading: false, patient: null, policy: null, policyValidation: { status: "invalid", notes: "No se encontró asegurado con esta cédula" }, preexisting: [] });
+        setSnap({ loading: false, patient: null, policy: null, policyValidation: { status: "invalid", notes: "No se encontró asegurado con esta cédula" }, preexisting: [], rawPatient: null, rawHistory: null, matchedAt: new Date().toISOString(), queryMs: Math.round(performance.now() - t0) });
         return;
       }
       const age = Math.floor((Date.now() - new Date(patient.date_of_birth).getTime()) / (365.25 * 24 * 3600 * 1000));
       const [{ data: policies }, { data: history }] = await Promise.all([
         supabase.from("policies").select("*").eq("policyholder_id", patient.id).order("end_date", { ascending: false }).limit(1),
-        supabase.from("medical_history").select("condition, severity, is_preexisting").eq("policyholder_id", patient.id),
+        supabase.from("medical_history").select("*").eq("policyholder_id", patient.id),
       ]);
       const policy = policies?.[0] ?? null;
       let policyValidation: { status: string; notes: string };
@@ -790,6 +795,10 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
         policy,
         policyValidation,
         preexisting: (history ?? []).filter((h: any) => h.is_preexisting).map((h: any) => ({ condition: h.condition, severity: h.severity })),
+        rawPatient: patient,
+        rawHistory: history ?? [],
+        matchedAt: new Date().toISOString(),
+        queryMs: Math.round(performance.now() - t0),
       });
     }, 350);
     return () => {
@@ -873,6 +882,43 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
           )}
         </div>
 
+        {/* Coincidencia en BD */}
+        {(snap.rawPatient || snap.rawHistory) && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5 text-xs">
+            <div className="mb-2 flex items-center justify-between font-semibold">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Coincidencia en BD
+              </span>
+              {snap.queryMs != null && (
+                <Badge variant="outline" className="text-[10px]">{snap.queryMs} ms</Badge>
+              )}
+            </div>
+            <div className="space-y-2">
+              {snap.rawPatient && (
+                <DbMatchRow
+                  table="policyholders"
+                  query={`national_id = '${form.patient_national_id}'`}
+                  row={snap.rawPatient}
+                />
+              )}
+              {snap.policy && (
+                <DbMatchRow
+                  table="policies"
+                  query={`policyholder_id = '${snap.rawPatient?.id ?? ""}'`}
+                  row={snap.policy}
+                />
+              )}
+              {snap.rawHistory && snap.rawHistory.length > 0 && (
+                <DbMatchRow
+                  table="medical_history"
+                  query={`policyholder_id = '${snap.rawPatient?.id ?? ""}' · ${snap.rawHistory.length} filas`}
+                  row={snap.rawHistory}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Reglas en vivo */}
         <div className="rounded-md border border-border/60 p-2.5">
           <div className="mb-2 flex items-center justify-between text-xs font-semibold">
@@ -946,6 +992,41 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
 }
 
 function DemoRunner({ onDone }: { onDone: () => void }) {
+  return _DemoRunner({ onDone });
+}
+
+function DbMatchRow({ table, query, row }: { table: string; query: string; row: any }) {
+  const [open, setOpen] = useState(false);
+  const isArray = Array.isArray(row);
+  const idLabel = isArray
+    ? `[${row.length} registros]`
+    : (row?.id ? String(row.id).slice(0, 8) + "…" : "");
+  return (
+    <div className="rounded border border-border/60 bg-background/60">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left hover:bg-muted/40"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <Badge variant="outline" className="font-mono text-[10px]">{table}</Badge>
+          <span className="truncate text-[10px] text-muted-foreground">{query}</span>
+        </span>
+        <span className="flex items-center gap-1.5 shrink-0">
+          <span className="font-mono text-[10px] text-primary">{idLabel}</span>
+          <span className="text-[10px] text-muted-foreground">{open ? "▾" : "▸"}</span>
+        </span>
+      </button>
+      {open && (
+        <pre className="max-h-60 overflow-auto border-t border-border/60 bg-muted/30 p-2 font-mono text-[10px] leading-tight text-foreground">
+{JSON.stringify(row, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function _DemoRunner({ onDone }: { onDone: () => void }) {
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const stopRef = useRef(false);
