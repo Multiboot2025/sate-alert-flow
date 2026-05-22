@@ -882,6 +882,43 @@ function LiveValidation({ form, serverResult }: { form: any; serverResult: any }
           )}
         </div>
 
+        {/* Coincidencia en BD */}
+        {(snap.rawPatient || snap.rawHistory) && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5 text-xs">
+            <div className="mb-2 flex items-center justify-between font-semibold">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Coincidencia en BD
+              </span>
+              {snap.queryMs != null && (
+                <Badge variant="outline" className="text-[10px]">{snap.queryMs} ms</Badge>
+              )}
+            </div>
+            <div className="space-y-2">
+              {snap.rawPatient && (
+                <DbMatchRow
+                  table="policyholders"
+                  query={`national_id = '${form.patient_national_id}'`}
+                  row={snap.rawPatient}
+                />
+              )}
+              {snap.policy && (
+                <DbMatchRow
+                  table="policies"
+                  query={`policyholder_id = '${snap.rawPatient?.id ?? ""}'`}
+                  row={snap.policy}
+                />
+              )}
+              {snap.rawHistory && snap.rawHistory.length > 0 && (
+                <DbMatchRow
+                  table="medical_history"
+                  query={`policyholder_id = '${snap.rawPatient?.id ?? ""}' · ${snap.rawHistory.length} filas`}
+                  row={snap.rawHistory}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Reglas en vivo */}
         <div className="rounded-md border border-border/60 p-2.5">
           <div className="mb-2 flex items-center justify-between text-xs font-semibold">
